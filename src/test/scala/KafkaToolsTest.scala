@@ -1,3 +1,4 @@
+import com.despegar.p13n.kafka.tools.KafkaTools
 import org.scalatest.FlatSpec
 
 class KafkaToolsTest extends FlatSpec {

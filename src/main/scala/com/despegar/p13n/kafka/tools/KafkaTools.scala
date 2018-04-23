@@ -1,4 +1,11 @@
+package com.despegar.p13n.kafka.tools
+
+import java.io.File
+
+import org.apache.commons.io.FileUtils
+
 import scala.sys.process._
+import scala.util.{Failure, Success, Try}
 
 object KafkaTools extends App {
 
@@ -9,11 +16,16 @@ object KafkaTools extends App {
 
   val parser = new ReassignPartitionsParser
   parser.parse(args, Config()) match {
-    case Some(config) => generatePartitionsReassignments(config)
+    case Some(config) => {
+      config.command match{
+        case Command.NONE => parser.showUsage
+        case Command.GENERATE_PARTITIONS_REASSIGNMENTS => generatePartitionsReassignments(config)
+      }
+
+    }
     case None => Unit // arguments are bad, error message will have been displayed
 
   }
-
 
   type BrokerId = Int
 
@@ -26,7 +38,7 @@ object KafkaTools extends App {
 
     if (topicDescribe.isEmpty) {
       println(s"No information of topic ${config.topic} in zookeeper ${config.zookeeperPath}")
-      finish
+      bye
     }
 
     val lines = topicDescribe.split("\n")
@@ -44,7 +56,6 @@ object KafkaTools extends App {
 
     println(s"Topic configuration: ")
     topicConfig.foreach { case (key, value) => println(s"\t- $key: $value") }
-    //    partitionsByBroker.foreach { case (broker, partitions) => println(s"Broker $broker has ${partitions.size} partitions: $partitions") }
 
     println
     val partitionsToReassign = selectPartitionsToReassign(topicPartitions)
@@ -56,16 +67,57 @@ object KafkaTools extends App {
     }
 
     implicit val distributionConf = DistributionConf.calculateFrom(brokers, replicationFactor, partitionsToReassign)
-    println(s"Each broker must have as much ${distributionConf.maxBrokerLoad} partitions")
-    println(s"Each broker must be as much preferred replica of ${distributionConf.maxLeadership} partitions")
+    println
+    println(s"* Each broker must have as much ${distributionConf.maxBrokerLoad} partitions")
+    println(s"* Each broker must be as much preferred replica of ${distributionConf.maxLeadership} partitions")
 
-    val brokersLoad: Map[BrokerId, BrokerId] = calculateBrokersLoad(brokers, partitionsByBroker, partitionsToReassign)
+    val brokersLoad: Map[BrokerId, Int] = calculateBrokersLoad(brokers, partitionsByBroker, partitionsToReassign)
+    val (finalBrokerLoad: Map[BrokerId, Int], replicasAssignments: List[PartitionConfiguration]) = reassignPartitions(topicPartitions, replicationFactor, partitionsToReassign, brokersLoad)
+    val finalAssignments = distributePreferredReplicas(replicasAssignments)
 
+    println
+    val leadershipByBroker = finalAssignments.groupBy(_.replicas.head)
+    finalBrokerLoad.toList.sortBy { case (brokerId, load) => load }.foreach {
+      case (brokerId, load) => println(s"Broker $brokerId has $load partitions and is preferred replica of ${leadershipByBroker(brokerId).size} partitions")
+    }
+    println
+    val sortedAssignments = finalAssignments.sortBy(_.partitionNum)
+    sortedAssignments.foreach(partitionConf =>
+      println(s"Partition ${partitionConf.partitionNum} replicas are in brokers ${partitionConf.replicas.mkString(",")}")
+    )
+
+    val reassignment = PartitionReassignment.from(config.topic, sortedAssignments)
+    val json = reassignment.toJson
+
+    writeJsonToFile(json)
+
+    bye
+  }
+
+  private def writeJsonToFile(json: String)(implicit config: Config) = {
+    println
+    println("Writing json to file...")
+    val fileName = config.fileName.getOrElse("/tmp/reassignPartitions.json")
+    val file = new File(fileName)
+    Try(
+      FileUtils.write(file, json, "UTF-8")
+    ) match {
+      case Failure(_) => {
+        println(s"Error writing file $fileName")
+        println(json)
+      }
+      case Success(_) => println(s"Reassign parititions file: $fileName")
+    }
+  }
+
+  private def reassignPartitions(topicPartitions: List[TopicPartition], replicationFactor: Int, partitionsToReassign: List[BrokerId], brokersLoad: Map[BrokerId, Int])(implicit distributionConf: DistributionConf) = {
     val seed = (brokersLoad, List(): List[PartitionConfiguration])
     val (finalBrokerLoad, replicasAssignments) = partitionsToReassign.foldLeft(seed) {
       case ((amountOfPartitionsByBroker, partitionsConfigs), partition) => {
         println
+        println("...............")
         println(s"Partition: $partition")
+        println("...............")
         val replicas = topicPartitions.filter(_.numOfPartition.equals(partition)).head.replicas
         println(s"Actual replicas: ${replicas.mkString(",")}")
 
@@ -75,27 +127,83 @@ object KafkaTools extends App {
         (reassignment.brokersLoad, partitionsConfigs :+ partitionConfiguration)
       }
     }
-
-    println
-    println("*******************")
-    println("Final configuration")
-    println
-    finalBrokerLoad.toList.sortBy{case (brokerId, load) => load}.foreach{
-      case (brokerId, load) => println(s"Broker $brokerId has $load partitions")
-    }
-    println
-    replicasAssignments.toList.groupBy(_.replicas.head).toList.sortBy{case (_, partitions) => partitions.size}.foreach{
-      case (leader, partitions) => println(s"Broker $leader is preferred replica of ${partitions.size} partitions")
-    }
-    println
-    replicasAssignments.foreach(partitionConf =>
-        println(s"Partition ${partitionConf.partitionNum} replicas are in brokers ${partitionConf.replicas.mkString(",")}")
-    )
+    (finalBrokerLoad, replicasAssignments)
   }
 
   /**
-    * Calculates each broker load , that is, the amount of partitions that each broker has
+    * Returns the given partitions replicas sorted to balance preferred replicas
+    *
+    * @param actualAssignments
+    * @param distributionConf
+    * @return
+    */
+  def distributePreferredReplicas(actualAssignments: List[PartitionConfiguration])(implicit distributionConf: DistributionConf) = {
+    println
+    println("**************************************************")
+    println
+    println("Sorting replicas to balance preferred replicas...")
+
+    var missing = actualAssignments
+    var proposedReplicasAssignment: List[PartitionConfiguration] = List()
+    var times = 0
+    val limit = 10
+    do {
+      distributeAssignments(missing, proposedReplicasAssignment) match {
+        case (proposed, miss) => {
+          missing = miss
+          proposedReplicasAssignment = proposed
+        }
+      }
+      times = times + 1
+
+    } while (!missing.isEmpty && times < limit)
+
+    if (missing.isEmpty) {
+      proposedReplicasAssignment
+    } else {
+      println("**** Balanced preferred replica is not assured")
+      proposedReplicasAssignment ++ missing
+    }
+  }
+
+
+  def distributeAssignments(replicasToDistribute: List[PartitionConfiguration], actualDistribution: List[PartitionConfiguration])(implicit distributionConf: DistributionConf): (List[PartitionConfiguration], List[PartitionConfiguration]) = {
+    val proposedReplicasAssignment: List[PartitionConfiguration] = sortReplicasBestEffort(replicasToDistribute, actualDistribution)
+    val missingAssignments = replicasToDistribute.map(_.partitionNum).diff(proposedReplicasAssignment.map(_.partitionNum))
+    val missingPartitions = replicasToDistribute.filter(assignment => missingAssignments.contains(assignment.partitionNum))
+    (proposedReplicasAssignment, missingPartitions)
+  }
+
+  /**
+    * Tries to sort replicas of all partitions.
+    * Does not guarantee that the result contains all the partitions
+    *
+    * @param replicasAssignments
+    * @param alreadySorted
+    * @param distributionConf
+    * @return
+    */
+  def sortReplicasBestEffort(replicasAssignments: List[PartitionConfiguration], alreadySorted: List[PartitionConfiguration] = List())(implicit distributionConf: DistributionConf) = {
+    replicasAssignments.foldLeft(alreadySorted)((acc, elem) => {
+      val partitionsByPreferredReplica = acc.groupBy(_.replicas.head)
+      val sortedReplicas = elem.replicas.sortBy(brokerId => partitionsByPreferredReplica.get(brokerId).map(_.size).getOrElse(0))
+
+      val result = if (partitionsByPreferredReplica.get(sortedReplicas.head).map(_.size).getOrElse(0) >= distributionConf.maxLeadership) {
+        val partitionToInvalidate = partitionsByPreferredReplica(sortedReplicas.head).head
+        acc.diff(List(partitionToInvalidate))
+      } else {
+        acc
+      }
+
+      val newPartitionConf = elem.copy(replicas = sortedReplicas)
+      result :+ newPartitionConf
+    })
+  }
+
+  /**
+    * Calculates each broker load, that is, the amount of partitions that each broker has
     * Only the given partitions to be reassigned count
+    *
     * @param brokers
     * @param partitionsByBroker
     * @param partitionsToReassign
@@ -129,31 +237,42 @@ object KafkaTools extends App {
     replicationFactor
   }
 
-  def maxAmountPerBroker(toBeDistributed : Int, brokers: List[BrokerId]) = {
+  def maxAmountPerBroker(toBeDistributed: Int, brokers: List[BrokerId]) = {
     val atLeast = toBeDistributed / brokers.size
     val mod = toBeDistributed % brokers.size
-    if(mod == 0) atLeast else atLeast + 1
+    if (mod == 0) atLeast else atLeast + 1
   }
 
 
-  //TODO: if adding new brokers make them leader
   private def newReplicasForPartition(replicationFactor: Int, reassignment: Reassignment)(implicit distributionConf: DistributionConf) = {
     val actualPartitionConf = reassignment.partitionConf
-    val validReplicas = actualPartitionConf.replicas
-      .filter(reassignment.brokersLoad.contains(_))
+    //validReplicas = Partition replicas that belong to whitelisted brokers
+    val validReplicas = actualPartitionConf.replicas.filter(reassignment.brokersLoad.contains(_))
+    //applicableReplicas = Partitions replicas that are to keep since its load is less or equal than limit (equal because the actual partition is considered in the load)
     val applicableReplicas = validReplicas.filter(replica => reassignment.brokersLoad(replica) <= distributionConf.maxBrokerLoad)
+    //ignoredValidReplicas = Partitions replicas that should be removed from this partition assignment since its load is higher than the admitted one
     val ignoredValidReplicas = validReplicas.filterNot(applicableReplicas.contains(_))
 
-    println(s"Ignoring actual replicas ${ignoredValidReplicas.mkString(",")} since have ${ignoredValidReplicas.map(r => reassignment.brokersLoad(r)).mkString(",")} replicas")
-    println(s"Replicas to decrease load: ${ignoredValidReplicas.mkString(",")}")
+    val updatedReassignment = {
+      if (ignoredValidReplicas.isEmpty) {
+        reassignment
+      } else {
+        //Since we want to removed the ignoredReplicas from the partition, their load must be decreased in one
+        ignoredValidReplicas.foreach(ignoredReplica =>
+          println(s"Ignoring replica $ignoredReplica since has ${reassignment.brokersLoad(ignoredReplica)} partitions when the limit is ${distributionConf.maxBrokerLoad}")
+        )
+        configureNewReassignment(reassignment)(ignoredValidReplicas, originalLoad => originalLoad - 1, validReplicas)
+      }
+    }
+    val newReassignmentFunc = configureNewReassignment(updatedReassignment) _
+    generateNewReassignment(replicationFactor, applicableReplicas, updatedReassignment, newReassignmentFunc)
+  }
 
-    val updatedReassignment = configureNewReassignment(reassignment)(ignoredValidReplicas, originalLoad => originalLoad -1)
-    val newReassignment = configureNewReassignment(updatedReassignment) _
-
+  private def generateNewReassignment(replicationFactor: Int, applicableReplicas: List[BrokerId], actualReassignment: Reassignment, newReassignment: (List[BrokerId], Int => Int, List[BrokerId]) => Reassignment) = {
     if (applicableReplicas.size >= replicationFactor) {
       val removedReplicas = applicableReplicas.drop(replicationFactor) //In case that partition had more replicas than RF
       val proposedReplicas = applicableReplicas.take(replicationFactor)
-      println(s"keeping original replicas: ${proposedReplicas.mkString(",")}")
+      println(s"* keeping original replicas --> ${proposedReplicas.mkString(",")}")
 
       newReassignment(removedReplicas, originalLoad => originalLoad - 1, proposedReplicas)
     } else {
@@ -161,31 +280,28 @@ object KafkaTools extends App {
       val missingBrokers = replicationFactor - applicableReplicas.size
       println(s"Keeping replicas: ${applicableReplicas.mkString(",")}")
 
-      val newBrokers = selectLessLoadedBrokers(missingBrokers, updatedReassignment.brokersLoad, applicableReplicas)
-      println(s"New brokers for partition: ${newBrokers.mkString(",")}")
+      val newBrokers = selectLessLoadedBrokers(missingBrokers, actualReassignment.brokersLoad, applicableReplicas)
+      println(s"Selected brokers for partition: ${newBrokers.mkString(",")}")
 
       val proposedReplicas = applicableReplicas ++ newBrokers
-      println(s"Proposed replicas: ${proposedReplicas.mkString(",")}")
+      println
+      println(s"* Proposed replicas ---------> ${proposedReplicas.mkString(",")}")
 
       newReassignment(newBrokers, originalLoad => originalLoad + 1, proposedReplicas)
     }
   }
 
-  def configureNewReassignment(reassignment: Reassignment)(affectedBrokers: List[BrokerId], loadOperation: Int => Int, proposedReplicas: List[BrokerId] = List()): Reassignment = {
+  def configureNewReassignment(reassignment: Reassignment)(affectedBrokers: List[BrokerId], loadOperation: Int => Int, proposedReplicas: List[BrokerId]): Reassignment = {
     val actualBrokersLoad = newBrokersLoad(reassignment.brokersLoad, affectedBrokers, loadOperation)
-    if(proposedReplicas.isEmpty){
-      reassignment.copy(brokersLoad = actualBrokersLoad)
-    }else{
-      val newPartitionConf = reassignment.partitionConf.copy(replicas = proposedReplicas)
-      reassignment.copy(brokersLoad = actualBrokersLoad, partitionConf = newPartitionConf)
-    }
+    val newPartitionConf = reassignment.partitionConf.copy(replicas = proposedReplicas)
+    reassignment.copy(brokersLoad = actualBrokersLoad, partitionConf = newPartitionConf)
   }
 
   def selectLessLoadedBrokers(missingBrokers: Int, brokerLoad: Map[BrokerId, Int], excludeBrokers: List[Int]): List[BrokerId] = {
     val whitelistedBrokers = brokerLoad.toList
       .filterNot { case (brokerId, _) => excludeBrokers.contains(brokerId) }
       .sortBy { case (_, amountOfPartitions) => amountOfPartitions }
-    whitelistedBrokers.foreach{
+    whitelistedBrokers.foreach {
       case (brokerId, load) => println(s"Broker $brokerId has $load partitions")
     }
     whitelistedBrokers
@@ -243,7 +359,7 @@ object KafkaTools extends App {
     }).toMap
   }
 
-  private def finish = {
+  private def bye = {
     println
     println("bye!")
     System.exit(0)
