@@ -6,6 +6,9 @@ scalaVersion := "2.12.5"
 
 val jacksonVersion = "2.9.5"
 
+assemblyJarName in assembly := "kafka-tools.jar"
+mainClass in assembly := Some("com.despegar.p13n.kafka.tools.KafkaTools")
+
 libraryDependencies ++= Seq(
   "com.github.scopt" %% "scopt" % "3.7.0",
   "commons-io" % "commons-io" % "2.6",
