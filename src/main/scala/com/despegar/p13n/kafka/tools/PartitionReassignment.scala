@@ -3,6 +3,8 @@ package com.despegar.p13n.kafka.tools
 import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 
+case class TopicPartitionReplicas(topic: String, partition: Int, replicas: List[Int])
+
 case class PartitionReassignment(partitions: List[TopicPartitionReplicas], version: Int = 3){
   def toJson = PartitionReassignment.mapper.writeValueAsString(this)
 }
@@ -14,7 +16,8 @@ object PartitionReassignment{
   }
 
   val mapper = new ObjectMapper()
-    .registerModule(DefaultScalaModule)
-    .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+  .registerModule(DefaultScalaModule)
+  .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 }
-case class TopicPartitionReplicas(topic: String, partition: Int, replicas: List[Int])
+
+case class PartitionConfiguration(partitionNum: Int, replicas: List[Int])
