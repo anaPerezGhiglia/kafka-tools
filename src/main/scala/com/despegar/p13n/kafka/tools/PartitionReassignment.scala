@@ -5,9 +5,11 @@ import com.fasterxml.jackson.module.scala.DefaultScalaModule
 
 case class TopicPartitionReplicas(topic: String, partition: Int, replicas: List[Int])
 
-case class PartitionReassignment(partitions: List[TopicPartitionReplicas], version: Int = 3){
+trait ToJson {
   def toJson = PartitionReassignment.mapper.writeValueAsString(this)
+
 }
+case class PartitionReassignment(partitions: List[TopicPartitionReplicas], version: Int = 3) extends ToJson
 
 object PartitionReassignment{
   def from(topic: String, reassignments : List[PartitionConfiguration]) = {
@@ -21,3 +23,15 @@ object PartitionReassignment{
 }
 
 case class PartitionConfiguration(partitionNum: Int, replicas: List[Int])
+
+case class TopicConfig(topic:String, partitionCount:Int, replicationFactor:Int, configs: String) extends ToJson
+
+object TopicConfig{
+  val Topic = "Topic"
+  val PartitionCount = "PartitionCount"
+  val ReplicationFactor = "ReplicationFactor"
+  val Configs = "Configs"
+  def from(properties: Map[String, String]) = {
+    new TopicConfig(properties(Topic), properties(PartitionCount).toInt, properties(ReplicationFactor).toInt, properties(Configs))
+  }
+}

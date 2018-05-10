@@ -9,12 +9,12 @@ object DistributionConf{
     new DistributionConf(maxBrokerLoad(brokers, replicationFactor, partitions), maxBrokerLeadership(brokers, partitions))
   }
 
-  private def maxBrokerLoad(brokers: List[BrokerId], replicationFactor: Int, partitions: List[Int]) = {
+  protected[tools] def maxBrokerLoad(brokers: List[BrokerId], replicationFactor: Int, partitions: List[Int]) = {
     val amountOfReplicas = partitions.size * replicationFactor
     maxAmountPerBroker(amountOfReplicas, brokers)
   }
 
-  private def maxBrokerLeadership(brokers: List[BrokerId], partitions: List[Int]) = {
+  protected[tools] def maxBrokerLeadership(brokers: List[BrokerId], partitions: List[Int]) = {
     maxAmountPerBroker(partitions.size, brokers)
   }
 

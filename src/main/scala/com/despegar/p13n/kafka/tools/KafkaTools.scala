@@ -30,19 +30,12 @@ object KafkaTools extends App {
   }
 
   private def generatePartitionsReassignments(implicit config: Config) = {
-    val (topicConfig: Map[String, String], actualReplicasAssignments: List[TopicPartition]) = getActualTopicDistribution(config)
-
-    val partitionsByBroker = actualReplicasAssignments
-      .flatMap(partition => partition.replicas.map(replica => (replica, partition)))
-      .groupBy(_._1)
-      .mapValues(groupped => groupped.map(_._2.numOfPartition))
-      .mapValues(partitions => partitions.sorted)
-
+    val (topicConfig: TopicConfig, actualReplicasAssignments: List[TopicPartition]) = getActualTopicDistribution(config)
 
     println(s"Topic configuration: ")
-    topicConfig.foreach { case (key, value) => println(s"\t- $key: $value") }
+    println(topicConfig.toJson)
 
-    val partitionsReassignmentsInput = ConfigurationManager.reassignParameters(topicConfig, actualReplicasAssignments, partitionsByBroker)
+    val partitionsReassignmentsInput = ConfigurationManager.reassignParameters(topicConfig, actualReplicasAssignments)
     val reassignment: PartitionReassignment = doPartitionsReassignments(actualReplicasAssignments, partitionsReassignmentsInput)
     writeJsonToFile(reassignment.toJson)
 
@@ -64,7 +57,7 @@ object KafkaTools extends App {
     val lines = topicDescribe.split("\n")
     val head = lines.toList.take(1).head
     val partitionLines = lines.toList.drop(1)
-    val topicConfig = extractPropertiesFromLine(head)
+    val topicConfig = TopicConfig.from(extractPropertiesFromLine(head))
     val actualReplicasAssignments = partitionLines.map(line => TopicPartition.buildFrom(extractPropertiesFromLine(line)))
     (topicConfig, actualReplicasAssignments)
   }
