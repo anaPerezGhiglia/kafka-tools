@@ -20,10 +20,6 @@ class ReassignPartitionsParser extends OptionParser[Config]("kafka-tools") {
     .action((value, args) => args.copy(command = Command.GENERATE_PARTITIONS_REASSIGNMENTS))
     .text("Generate partition reassignments")
     .children(
-      opt[Seq[Int]]('b', "broker-ids")
-        .action((value, args) => args.copy(brokerIds = value.toList))
-        .text("Comma separated list of whitelisted brokers to spred replicas across")
-        .required,
 
       opt[String]('t', "topic")
         .action((value, args) => args.copy(topic = value))
@@ -40,6 +36,10 @@ class ReassignPartitionsParser extends OptionParser[Config]("kafka-tools") {
         .text("kafka's directory")
         .required,
 
+      opt[Seq[Int]]('b', "broker-ids")
+        .action((value, args) => args.copy(brokerIds = value.toList))
+        .text("Comma separated list of whitelisted brokers to spred replicas across"),
+
       opt[Seq[Int]]('p', "partitions")
         .action((value, args) => args.copy(partitionsToReassign = value.toList))
         .text("partitions to reassign. If not provided all partitions are reassigned"),
@@ -53,5 +53,5 @@ class ReassignPartitionsParser extends OptionParser[Config]("kafka-tools") {
         .text("fully qualified file name to generate json. If not provided generated in /tmp/reassignPartitions.json")
     )
 
-  cmd("lag").text("Checks lag of determined groupid").action((_,config) => config.copy(command = Command.CHECK_LAG))
+  cmd("lag").text("Checks lag of determined groupid").action((_, config) => config.copy(command = Command.CHECK_LAG))
 }

@@ -68,8 +68,8 @@ object KafkaTools extends App {
 
     println
     val leadershipByBroker = finalAssignments.groupBy(_.replicas.head)
-    finalBrokerLoad.toList.sortBy { case (brokerId, load) => load }.foreach {
-      case (brokerId, load) => println(s"Broker $brokerId has $load partitions and is preferred replica of ${leadershipByBroker(brokerId).size} partitions")
+    finalBrokerLoad.toList.sortBy { case (brokerId, _) => brokerId }.foreach {
+      case (brokerId, load) => println(s"Broker $brokerId has $load partitions and is preferred replica of ${leadershipByBroker.get(brokerId).map(_.size).getOrElse(0)} partitions")
     }
     println
     finalAssignments.foreach(partitionConf =>
