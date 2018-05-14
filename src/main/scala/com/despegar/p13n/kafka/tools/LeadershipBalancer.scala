@@ -16,6 +16,7 @@ object LeadershipBalancer {
     println
     println("Sorting replicas to balance preferred replicas...")
 
+    def sort(partitions: List[PartitionConfiguration]) = partitions.sortBy(_.partitionNum)
     var missing = actualAssignments
     var proposedReplicasAssignment: List[PartitionConfiguration] = List()
     var times = 0
@@ -32,10 +33,10 @@ object LeadershipBalancer {
     } while (!missing.isEmpty && times < limit)
 
     if (missing.isEmpty) {
-      proposedReplicasAssignment
+      sort(proposedReplicasAssignment)
     } else {
       println("**** Balanced preferred replica is not assured")
-      proposedReplicasAssignment ++ missing
+      sort(proposedReplicasAssignment ++ missing)
     }
   }
 

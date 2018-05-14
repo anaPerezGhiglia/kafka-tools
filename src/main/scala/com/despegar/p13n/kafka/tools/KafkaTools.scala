@@ -46,8 +46,8 @@ object KafkaTools extends App {
     println("Fetching topic information from kafka...")
 
     //--zookeeper-path zk-p13n-bsas-rc-01.servers.despegar.it/p13n-kafka --topic upaEvents --broker-ids 0,1,2 --kafka-dir /home/anaperezghiglia/opt/kafka_2.12-1.1.0
-    //    val topicDescribe = s"${config.kafkaDir}/bin/kafka-topics.sh --zookeeper ${config.zookeeperPath} --topic ${config.topic} --describe" !!
-    val topicDescribe = s"cat topicDescribe.txt" !!
+    //    val topicDescribe = s"cat topicDescribe.txt" !!
+    val topicDescribe = s"${config.kafkaDir}/bin/kafka-topics.sh --zookeeper ${config.zookeeperPath} --topic ${config.topic} --describe" !!
 
     if (topicDescribe.isEmpty) {
       println(s"No information of topic ${config.topic} in zookeeper ${config.zookeeperPath}")
@@ -72,12 +72,11 @@ object KafkaTools extends App {
       case (brokerId, load) => println(s"Broker $brokerId has $load partitions and is preferred replica of ${leadershipByBroker(brokerId).size} partitions")
     }
     println
-    val sortedAssignments = finalAssignments.sortBy(_.partitionNum)
-    sortedAssignments.foreach(partitionConf =>
+    finalAssignments.foreach(partitionConf =>
       println(s"Partition ${partitionConf.partitionNum} replicas are in brokers ${partitionConf.replicas.mkString(",")}")
     )
 
-    val reassignment = PartitionReassignment.from(config.topic, sortedAssignments)
+    val reassignment = PartitionReassignment.from(config.topic, finalAssignments)
     reassignment
   }
 

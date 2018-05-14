@@ -1,5 +1,5 @@
+organization := "com.despegar.p13n"
 name := "kafka-tools"
-
 version := "0.1"
 
 scalaVersion := "2.12.5"
@@ -8,6 +8,11 @@ val jacksonVersion = "2.9.5"
 
 assemblyJarName in assembly := "kafka-tools.jar"
 mainClass in assembly := Some("com.despegar.p13n.kafka.tools.KafkaTools")
+artifact in (Compile, assembly) := {
+  val art = (artifact in (Compile, assembly)).value
+  art.withClassifier(Some("assembly"))
+}
+addArtifact(artifact in (Compile, assembly), assembly)
 
 libraryDependencies ++= Seq(
   "com.github.scopt" %% "scopt" % "3.7.0",
