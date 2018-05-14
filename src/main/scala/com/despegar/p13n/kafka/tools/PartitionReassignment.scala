@@ -9,7 +9,7 @@ trait ToJson {
   def toJson = PartitionReassignment.mapper.writeValueAsString(this)
 
 }
-case class PartitionReassignment(partitions: List[TopicPartitionReplicas], version: Int = 3) extends ToJson
+case class PartitionReassignment(partitions: List[TopicPartitionReplicas], version: Int = 1) extends ToJson
 
 object PartitionReassignment{
   def from(topic: String, reassignments : List[PartitionConfiguration]) = {

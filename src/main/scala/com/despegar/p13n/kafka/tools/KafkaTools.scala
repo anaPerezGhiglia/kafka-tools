@@ -45,8 +45,6 @@ object KafkaTools extends App {
   private def getActualTopicDistribution(config: Config) = {
     println("Fetching topic information from kafka...")
 
-    //--zookeeper-path zk-p13n-bsas-rc-01.servers.despegar.it/p13n-kafka --topic upaEvents --broker-ids 0,1,2 --kafka-dir /home/anaperezghiglia/opt/kafka_2.12-1.1.0
-    //    val topicDescribe = s"cat topicDescribe.txt" !!
     val topicDescribe = s"${config.kafkaDir}/bin/kafka-topics.sh --zookeeper ${config.zookeeperPath} --topic ${config.topic} --describe" !!
 
     if (topicDescribe.isEmpty) {
