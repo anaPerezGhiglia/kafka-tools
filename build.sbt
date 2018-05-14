@@ -14,6 +14,13 @@ artifact in (Compile, assembly) := {
 }
 addArtifact(artifact in (Compile, assembly), assembly)
 
+publishTo := {
+  if (version.value.endsWith("SNAPSHOT"))
+    Some("Nexus snapshots" at "http://nexus.despegar.it:8080/nexus/content/repositories/snapshots/")
+  else
+    Some("Nexus releases" at "http://nexus.despegar.it:8080/nexus/content/repositories/releases/")
+}
+
 libraryDependencies ++= Seq(
   "com.github.scopt" %% "scopt" % "3.7.0",
   "commons-io" % "commons-io" % "2.6",
