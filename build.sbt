@@ -17,7 +17,7 @@ publishTo := {
   if (version.value.endsWith("SNAPSHOT"))
     Some("Nexus snapshots" at "http://nexus.despegar.it:8080/nexus/content/repositories/snapshots/")
   else
-    Some("Nexus releases" at "http://nexus.despegar.it:8080/nexus/content/repositories/releases/")
+    Some("Nexus PROD releases" at "http://intranet.despegar.com/nexus/content/repositories/releases-lib/")
 }
 
 libraryDependencies ++= Seq(

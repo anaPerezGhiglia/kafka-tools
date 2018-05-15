@@ -1,5 +1,13 @@
 #!/bin/bash
 
+dir=$(dirname "$0")
+
+if [ "." == "$dir" ]
+then
+    echo "Script must be executed from project's root directory"
+    exit 0
+fi
+
 function get_current_version () {
     echo $(cat build.sbt | grep "version" | awk -F= '{print $2}' | sed 's/\"//g')
 }
@@ -24,7 +32,13 @@ echo
 echo "Updating build.sbt version ..."
 sed -i "s/version\s*:=\s*\".*\"/version := \"$RELEASE_VERSION\"/g" build.sbt
 
+echo "Pushing release to github ..."
 git commit -am "Updated version to $RELEASE_VERSION"
 git tag -a $RELEASE_VERSION -m "Version $RELEASE_VERSION"
 git push origin master
 git push origin $RELEASE_VERSION
+
+echo "Packaging and publishing project ..."
+sbt clean compile publish
+
+echo "Done!"
