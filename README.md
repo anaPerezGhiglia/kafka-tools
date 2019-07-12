@@ -25,6 +25,20 @@ With this tool you can (that you can't do with the default tool):
 <img src="src/main/resources/kafkaToolsReassignments.jpg"  height="500"/>
  
 
+## Installation
+Note: you will need to have installed sbt for installing kafka-tools
+
+ 1. Download repo
+ 2. Run `./install.sh` script
+ 3. You can now run `./kafka-tools.sh`
+ 
+ Recommendation: if you want to be able to run kafka-tool from any directory 
+ make a symbolic link in /usr/local/bin or /usr/bin to where you 
+ ```
+ sudo ln -s /home/ani/sources/kafka-tools/kafka-tools.sh /usr/local/bin/kafka-tools
+ ```
+ 
+
 -----
 ## Usage
 ```

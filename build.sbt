@@ -20,6 +20,9 @@ publishTo := {
     Some("Nexus PROD releases" at "http://intranet.despegar.com/nexus/content/repositories/releases-lib/")
 }
 
+assemblyJarName in assembly := "kafka-tools.jar"
+test in assembly := {}
+
 libraryDependencies ++= Seq(
   "com.github.scopt" %% "scopt" % "3.7.0",
   "commons-io" % "commons-io" % "2.6",
