@@ -11,11 +11,6 @@ object KafkaTools extends App {
 
   type BrokerId = Int
 
-  //--zookeeper-path zk-p13n-bsas-rc-01.servers.despegar.it/p13n-kafka --topic upaEvents --broker-ids 0,1,2 --kafka-dir /home/anaperezghiglia/opt/kafka_2.12-1.1.0
-  println("**************************************")
-  println("Kafka generate reassign partition tool")
-  println("**************************************\n")
-
   val parser = new ReassignPartitionsParser
   parser.parse(args, Config()) match {
     case Some(config) => {

@@ -7,19 +7,6 @@ scalaVersion := "2.12.5"
 val jacksonVersion = "2.9.5"
 
 mainClass in assembly := Some("com.despegar.p13n.kafka.tools.KafkaTools")
-artifact in (Compile, assembly) := {
-  val art = (artifact in (Compile, assembly)).value
-  art.withClassifier(Some("assembly"))
-}
-addArtifact(artifact in (Compile, assembly), assembly)
-
-publishTo := {
-  if (version.value.endsWith("SNAPSHOT"))
-    Some("Nexus snapshots" at "http://nexus.despegar.it:8080/nexus/content/repositories/snapshots/")
-  else
-    Some("Nexus PROD releases" at "http://intranet.despegar.com/nexus/content/repositories/releases-lib/")
-}
-
 assemblyJarName in assembly := "kafka-tools.jar"
 test in assembly := {}
 
