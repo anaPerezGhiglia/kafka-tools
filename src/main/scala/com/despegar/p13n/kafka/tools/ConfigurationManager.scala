@@ -4,7 +4,7 @@ import com.despegar.p13n.kafka.tools.KafkaTools.BrokerId
 
 object ConfigurationManager {
 
-  def reassignParameters(topicConfig: TopicConfig, actualReplicasAssignments: List[TopicPartition])(implicit config: Config) = {
+  def reassignParameters(topicConfig: TopicConfig, actualReplicasAssignments: List[TopicPartition])(implicit config: ReassignConfig) = {
     println
 
     val partitionsByBroker = getPartitionsByBroker(actualReplicasAssignments)
@@ -34,7 +34,7 @@ object ConfigurationManager {
       .mapValues(partitions => partitions.sorted)
   }
 
-  protected[tools] def selectReplicationFactor(topicConfig: TopicConfig)(implicit config: Config) = {
+  protected[tools] def selectReplicationFactor(topicConfig: TopicConfig)(implicit config: ReassignConfig) = {
     val actualReplicationFactor = topicConfig.replicationFactor
     val optNewReplicationFactor = config.newReplicationFactor
     optNewReplicationFactor.foreach(newReplicationFactor => {
@@ -52,7 +52,7 @@ object ConfigurationManager {
     replicationFactor
   }
 
-  protected[tools] def selectPartitionsToReassign(partitions: List[TopicPartition])(implicit config: Config): List[Int] = {
+  protected[tools] def selectPartitionsToReassign(partitions: List[TopicPartition])(implicit config: ReassignConfig): List[Int] = {
     val partitionsNumbers = partitions.map(_.numOfPartition)
     val partitionsWithinTopic = config.partitionsToReassign.filter(partitionsNumbers.contains(_))
     if (partitionsWithinTopic.isEmpty) {
@@ -64,7 +64,7 @@ object ConfigurationManager {
     }
   }
 
-  protected[tools] def selectBrokers(actualBrokers: List[BrokerId])(implicit config: Config): List[Int] = {
+  protected[tools] def selectBrokers(actualBrokers: List[BrokerId])(implicit config: ReassignConfig): List[Int] = {
     def subtract(minuend: List[Int], subtrahend: List[Int]) = minuend.filterNot(subtrahend.contains(_)).sorted
 
     val whitelistedBrokers = config.brokerIds
