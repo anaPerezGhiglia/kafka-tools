@@ -1,5 +1,6 @@
 package com.despegar.p13n.kafka.tools
 
+import com.despegar.p13n.kafka.tools.reassign.PartitionsReassignmentMaster
 import org.scalatest.FlatSpec
 
 class KafkaToolsTest extends FlatSpec {

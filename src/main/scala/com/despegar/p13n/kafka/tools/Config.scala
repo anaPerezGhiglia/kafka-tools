@@ -23,11 +23,13 @@ case class Config(reassignConfig: ReassignConfig = new ReassignConfig(),
 
 
 class ReassignPartitionsParser extends OptionParser[Config]("kafka-tools") {
+  import Utils._
+
+  def copyReassignConf[T](newConfig: (ReassignConfig, T) => ReassignConfig)(value: T, config: Config) = config.copyReassign(newConfig(config.reassignConfig, value))
+
+  def copyLagConf[T](newConfig: (LagConfig, T) => LagConfig)(value: T, config: Config) = config.copyLag(newConfig(config.lagConfig, value))
+
   head("Despegar.com kafka-tools")
-
-  def copyReassignConf(config: Config, newConfig: ReassignConfig => ReassignConfig) = config.copy(reassignConfig = newConfig(config.reassignConfig))
-  def copyLagConf(config: Config, newConfig: LagConfig => LagConfig) = config.copy(lagConfig = newConfig(config.lagConfig))
-
 
   cmd("reassign")
     .action((value, args) => args.copy(command = Command.GENERATE_PARTITIONS_REASSIGNMENTS))
@@ -35,34 +37,34 @@ class ReassignPartitionsParser extends OptionParser[Config]("kafka-tools") {
     .children(
 
       opt[String]('k', "kafka-dir")
-        .action((value, args) => copyReassignConf(args, _.copy(kafkaDir = value)))
+        .action(copyReassignConf((reassignConf,value) => reassignConf.copy(kafkaDir = value)))
         .text("kafka's directory")
         .required,
 
       opt[String]('t', "topic")
-        .action((value, args) => copyReassignConf(args, _.copy(topic = value)))
+        .action(copyReassignConf((reassignConf,value) => reassignConf.copy(topic = value)))
         .text("topic of which want to generate partition reassignments")
         .required,
 
       opt[String]('z', "zookeeper-path")
-        .action((value, args) => copyReassignConf(args, _.copy(zookeeperPath = value)))
+        .action(copyReassignConf((reassignConf,value) => reassignConf.copy(zookeeperPath = value)))
         .text("kafka's zookeeper path")
         .required,
 
       opt[Seq[Int]]('b', "broker-ids")
-        .action((value, args) => copyReassignConf(args, _.copy(brokerIds = value.toList)))
+        .action(copyReassignConf((reassignConf,value) => reassignConf.copy(brokerIds = value.toList)))
         .text("Comma separated list of whitelisted brokers to spred replicas across"),
 
       opt[Seq[Int]]('p', "partitions")
-        .action((value, args) => copyReassignConf(args, _.copy(partitionsToReassign = value.toList)))
+        .action(copyReassignConf((reassignConf,value) => reassignConf.copy(partitionsToReassign = value.toList)))
         .text("partitions to reassign. If not provided all partitions are reassigned"),
 
       opt[Int]('r', "replication-factor")
-        .action((value, args) => copyReassignConf(args, _.copy(newReplicationFactor = Some(value))))
+        .action(copyReassignConf((reassignConf,value) => reassignConf.copy(newReplicationFactor = Some(value))))
         .text("new replication factor. If not provided partitions are reassigned taking into account the topic actual RF"),
 
       opt[String]('f', "file-name")
-        .action((value, args) => copyReassignConf(args, _.copy(fileName = Some(value))))
+        .action(copyReassignConf((reassignConf,value) => reassignConf.copy(fileName = Some(value))))
         .text("fully qualified file name to generate json. If not provided generated in /tmp/reassignPartitions.json")
     )
 
@@ -72,22 +74,22 @@ class ReassignPartitionsParser extends OptionParser[Config]("kafka-tools") {
     .children(
 
       opt[String]('k', "kafka-dir")
-        .action((value, args) => copyLagConf(args, _.copy(kafkaDir = value)))
+        .action(copyLagConf((lagConfig, value) => lagConfig.copy(kafkaDir = value)))
         .text("kafka's directory")
         .required,
 
       opt[String]('g', "group-id")
-        .action((value, args) => copyLagConf(args, _.copy(groupid = value)))
+        .action(copyLagConf((lagConfig, value) => lagConfig.copy(groupid = value)))
         .text("consumer group-id")
         .required(),
 
       opt[String]('s', "bootstrap-servers")
-        .action((value, args) => copyLagConf(args, _.copy(bootstrapServers = value)))
+        .action(copyLagConf((lagConfig, value) => lagConfig.copy(bootstrapServers = value)))
         .text("kafka's bootstrap servers")
         .required(),
 
       opt[String]('t', "topic")
-        .action((value, args) => copyLagConf(args, _.copy(topic = Some(value))))
+        .action(copyLagConf((lagConfig, value) => lagConfig.copy(topic = Some(value))))
         .text("topic of which want to evaluate lag. If not provided all topics consumed by the group-id will me evaluated")
     )
 }

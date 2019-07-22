@@ -1,5 +1,6 @@
 package com.despegar.p13n.kafka.tools
 
+import com.despegar.p13n.kafka.tools.reassign.{ConfigurationManager, TopicConfig, TopicPartition}
 import org.scalatest.FlatSpec
 
 class ConfigurationManagerTest extends FlatSpec{
@@ -7,64 +8,64 @@ class ConfigurationManagerTest extends FlatSpec{
   "ConfigurationManager#selectReplicationFactor" should "fail if the provided RF < 1" in{
 
     val topicConfig = new TopicConfig("test", 12, 3, "")
-    val kafkaToolsParameters = Config().copy(newReplicationFactor = Some(0))
-    assertThrows[IllegalArgumentException](ConfigurationManager.selectReplicationFactor(topicConfig)(kafkaToolsParameters))
+    val reassignParameters = ReassignConfig().copy(newReplicationFactor = Some(0))
+    assertThrows[IllegalArgumentException](ConfigurationManager.selectReplicationFactor(topicConfig)(reassignParameters))
   }
 
   it should "select parameter RF over current RF even if it is smaller" in {
     val topicConfig = new TopicConfig("test", 12, 3, "")
-    val kafkaToolsParameters = Config().copy(newReplicationFactor = Some(2))
-    assertResult(2)(ConfigurationManager.selectReplicationFactor(topicConfig)(kafkaToolsParameters))
+    val reassignParameters = ReassignConfig().copy(newReplicationFactor = Some(2))
+    assertResult(2)(ConfigurationManager.selectReplicationFactor(topicConfig)(reassignParameters))
   }
 
   it should "select parameter RF over current RF" in {
     val topicConfig = new TopicConfig("test", 12, 3, "")
-    val kafkaToolsParameters = Config().copy(newReplicationFactor = Some(4))
-    assertResult(4)(ConfigurationManager.selectReplicationFactor(topicConfig)(kafkaToolsParameters))
+    val reassignParameters = ReassignConfig().copy(newReplicationFactor = Some(4))
+    assertResult(4)(ConfigurationManager.selectReplicationFactor(topicConfig)(reassignParameters))
   }
 
   it should "keep the current RF if no RF was provided" in {
     val topicConfig = new TopicConfig("test", 12, 3, "")
-    val kafkaToolsParameters = Config()
-    assertResult(3)(ConfigurationManager.selectReplicationFactor(topicConfig)(kafkaToolsParameters))
+    val reassignParameters = ReassignConfig()
+    assertResult(3)(ConfigurationManager.selectReplicationFactor(topicConfig)(reassignParameters))
   }
 
 
   "ConfigurationManager#selectPartitionsToReassign" should "select all topic partitions if no partitions where provided" in {
-    val kafkaToolsParameters = Config()
+    val reassignParameters = ReassignConfig()
     val partitions: List[TopicPartition] = List(TopicPartition(1, 0, List(0,1,2), List(0,1,2)), TopicPartition(2, 1, List(0,1,2), List(0,1,2)), TopicPartition(3, 2, List(0,1,2), List(0,1,2)))
-    assertResult(List(1,2,3))(ConfigurationManager.selectPartitionsToReassign(partitions)(kafkaToolsParameters))
+    assertResult(List(1,2,3))(ConfigurationManager.selectPartitionsToReassign(partitions)(reassignParameters))
   }
 
   it should "select all topic partitions if none of the given partitions are contained in the topic" in {
-    val kafkaToolsParameters = Config().copy(partitionsToReassign = List(4,5,6))
+    val reassignParameters = ReassignConfig().copy(partitionsToReassign = List(4,5,6))
     val partitions: List[TopicPartition] = List(TopicPartition(1, 0, List(0,1,2), List(0,1,2)), TopicPartition(2, 1, List(0,1,2), List(0,1,2)), TopicPartition(3, 2, List(0,1,2), List(0,1,2)))
-    assertResult(List(1,2,3))(ConfigurationManager.selectPartitionsToReassign(partitions)(kafkaToolsParameters))
+    assertResult(List(1,2,3))(ConfigurationManager.selectPartitionsToReassign(partitions)(reassignParameters))
   }
 
   it should "return the partitions provided when are a sublist of the topic partitions" in {
-    val kafkaToolsParameters = Config().copy(partitionsToReassign = List(1,2))
+    val reassignParameters = ReassignConfig().copy(partitionsToReassign = List(1,2))
     val partitions: List[TopicPartition] = List(TopicPartition(1, 0, List(0,1,2), List(0,1,2)), TopicPartition(2, 1, List(0,1,2), List(0,1,2)), TopicPartition(3, 2, List(0,1,2), List(0,1,2)))
-    assertResult(List(1,2))(ConfigurationManager.selectPartitionsToReassign(partitions)(kafkaToolsParameters))
+    assertResult(List(1,2))(ConfigurationManager.selectPartitionsToReassign(partitions)(reassignParameters))
   }
 
   it should "return the partitions provideded that are within the topic partitions" in {
-    val kafkaToolsParameters = Config().copy(partitionsToReassign = List(1,2,4))
+    val reassignParameters = ReassignConfig().copy(partitionsToReassign = List(1,2,4))
     val partitions: List[TopicPartition] = List(TopicPartition(1, 0, List(0,1,2), List(0,1,2)), TopicPartition(2, 1, List(0,1,2), List(0,1,2)), TopicPartition(3, 2, List(0,1,2), List(0,1,2)))
-    assertResult(List(1,2))(ConfigurationManager.selectPartitionsToReassign(partitions)(kafkaToolsParameters))
+    assertResult(List(1,2))(ConfigurationManager.selectPartitionsToReassign(partitions)(reassignParameters))
   }
 
 
   "ConfigurationManager#selectBrokers" should "return the brokers provided" in {
     val actualBrokers = List(0,1,2)
-    val kafkaToolsParameters = Config().copy(brokerIds = List(0,1,2,3))
-    assertResult(List(0,1,2,3))(ConfigurationManager.selectBrokers(actualBrokers)(kafkaToolsParameters))
+    val reassignParameters = ReassignConfig().copy(brokerIds = List(0,1,2,3))
+    assertResult(List(0,1,2,3))(ConfigurationManager.selectBrokers(actualBrokers)(reassignParameters))
   }
 
   it should "return the topic's actual brokers if no brokerIds where provided" in {
     val actualBrokers = List(0,1,2)
-    val kafkaToolsParameters = Config()
-    assertResult(actualBrokers)(ConfigurationManager.selectBrokers(actualBrokers)(kafkaToolsParameters))
+    val reassignParameters = ReassignConfig()
+    assertResult(actualBrokers)(ConfigurationManager.selectBrokers(actualBrokers)(reassignParameters))
   }
 
   "ConfigurationManager#brokersLoad" should "only take into cosideration the load of partitions to be reassigned" in {
@@ -117,8 +118,8 @@ class ConfigurationManagerTest extends FlatSpec{
   "ConfigurationManager#reassignParameters" should "fail if valid brokers is less than RF" in {
     val topicConfig = new TopicConfig("test", 12, 3, "")
     val partitions = List(TopicPartition(1, 0, List(0,1,2), List(0,1,2)), TopicPartition(2, 1, List(0,1,2), List(0,1,2)), TopicPartition(3, 2, List(0,1,2), List(0,1,2)))
-    val kafkaToolsParameters = Config().copy(newReplicationFactor = Option(2), brokerIds = List(1))
-    assertThrows[IllegalArgumentException](ConfigurationManager.reassignParameters(topicConfig, partitions)(kafkaToolsParameters))
+    val reassignParameters = ReassignConfig().copy(newReplicationFactor = Option(2), brokerIds = List(1))
+    assertThrows[IllegalArgumentException](ConfigurationManager.reassignParameters(topicConfig, partitions)(reassignParameters))
   }
 
   "ConfigurationManager#getPartitionsByBroker" should "return a list of the partition each broker has" in {

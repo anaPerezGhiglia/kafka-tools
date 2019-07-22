@@ -1,5 +1,4 @@
-package com.despegar.p13n.kafka.tools
-
+package com.despegar.p13n.kafka.tools.reassign
 
 object LeadershipBalancer {
 

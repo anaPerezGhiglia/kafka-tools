@@ -1,5 +1,6 @@
 package com.despegar.p13n.kafka.tools
 
+import com.despegar.p13n.kafka.tools.reassign.{DistributionConf, LeadershipBalancer, PartitionConfiguration}
 import org.scalatest.FlatSpec
 
 class LeadershipBalancerTest extends FlatSpec {

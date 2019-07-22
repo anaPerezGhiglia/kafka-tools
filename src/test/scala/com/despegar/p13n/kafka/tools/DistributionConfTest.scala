@@ -1,6 +1,7 @@
 package com.despegar.p13n.kafka.tools
 
 import com.despegar.p13n.kafka.tools.KafkaTools.BrokerId
+import com.despegar.p13n.kafka.tools.reassign.DistributionConf
 import org.scalatest.FlatSpec
 
 class DistributionConfTest extends FlatSpec{

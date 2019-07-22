@@ -1,4 +1,4 @@
-package com.despegar.p13n.kafka.tools
+package com.despegar.p13n.kafka.tools.reassign
 
 import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule

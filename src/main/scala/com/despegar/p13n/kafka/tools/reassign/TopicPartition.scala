@@ -1,6 +1,4 @@
-package com.despegar.p13n.kafka.tools
-
-import com.despegar.p13n.kafka.tools.KafkaTools.BrokerId
+package com.despegar.p13n.kafka.tools.reassign
 
 case class TopicPartition(numOfPartition: Int, leader: Int, replicas: List[Int], isr: List[Int])
 
