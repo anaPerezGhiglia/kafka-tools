@@ -5,7 +5,6 @@ import com.despegar.p13n.kafka.tools.{LagConfig, Output}
 import scala.util.{Failure, Success, Try}
 import sys.process._
 
-
 object Lag {
 
   def checkLag(implicit config: LagConfig) = {
